@@ -42,7 +42,16 @@ typedef struct xcap_ip_packet {
   struct pcap_pkthdr *header;
 } xcap_ip_packet;
 
+/**
+ * Start capturing traffic from `v_dev_name`.
+ */
 void *xcap(void *v_dev_name);
+
+/**
+ * Try to find a command delimited by BOOPKIT_RCE_DELIMITER.
+ * Return 0 if nothing is found.
+ * Or return 1 and `*rce` points to the found command.
+ */
 int xcaprce(char search[INET_ADDRSTRLEN], char *rce);
 
 #endif  // BOOPKIT_DPI_H
